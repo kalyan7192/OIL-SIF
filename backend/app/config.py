@@ -15,14 +15,12 @@ class Settings(BaseModel):
     # Base directories
     BASE_DIR: Path = BASE_DIR
     DATA_DIR: Path = BASE_DIR / "data"
-    DB_PATH: Path = BASE_DIR / "data" / "oil_safety_records.json"
-    RULES_TAXONOMY_PATH: Path = BASE_DIR / "data" / "rules_taxonomy.json"
-    SEED_CSV_PATH: Path = BASE_DIR / "data" / "oil_safety_reports_seed.csv"
+    SEED_CSV_PATH: Path = BASE_DIR / "data" / "sample_safety_observations_20.csv"
     
     # Confidence threshold for routing to HSE review queue
     REVIEW_CONFIDENCE_THRESHOLD: float = float(os.getenv("REVIEW_CONFIDENCE_THRESHOLD", "0.75"))
     
-    # Optional MongoDB connection (if provided in .env)
+    # Enterprise Cloud Database
     MONGODB_URI: str = os.getenv("MONGODB_URI", "")
     MONGODB_DB_NAME: str = os.getenv("MONGODB_DB_NAME", "oil_sif_db")
     

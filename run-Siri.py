@@ -6,59 +6,40 @@ Cross-platform Launcher Script
 import sys
 import subprocess
 import os
-import socket
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = BASE_DIR / "backend"
 DATA_DIR = BASE_DIR / "data"
 
-def is_port_in_use(port=8000):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(('127.0.0.1', port)) == 0
-
-def free_port(port=8000):
-    if not is_port_in_use(port):
-        return
-    print(f"[*] Port {port} is in use. Automatically freeing port {port}...")
+def is_valid_executable(py_path):
     try:
-        if sys.platform != "win32":
-            subprocess.run(f"lsof -ti:{port} | xargs kill -9 2>/dev/null || true", shell=True, check=False)
-        else:
-            subprocess.run(f"for /f \"tokens=5\" %a in ('netstat -aon ^| findstr :{port}') do taskkill /f /pid %a >nul 2>&1", shell=True, check=False)
-    except Exception as e:
-        print(f"[!] Note: Could not auto-kill port {port}: {e}")
+        res = subprocess.run([str(py_path), "-c", "import sys"], capture_output=True, timeout=2)
+        return res.returncode == 0
+    except Exception:
+        return False
 
 def get_python_executable():
-    """Find or setup the project virtual environment Python binary"""
     if sys.platform == "win32":
-        venv_py = BASE_DIR / ".venv" / "Scripts" / "python.exe"
+        candidates = [
+            BASE_DIR / ".venv" / "Scripts" / "python.exe",
+            BASE_DIR / "venv" / "Scripts" / "python.exe",
+        ]
     else:
-        venv_py = BASE_DIR / ".venv" / "bin" / "python3"
-
-    if venv_py.exists():
-        return str(venv_py)
-    
-    print("[*] Setting up local virtual environment (.venv)...")
-    try:
-        subprocess.run([sys.executable, "-m", "venv", str(BASE_DIR / ".venv")], check=True)
-        req_file = BASE_DIR / "requirements.txt"
-        if req_file.exists():
-            print("[*] Installing project dependencies...")
-            subprocess.run([str(venv_py), "-m", "pip", "install", "-q", "-r", str(req_file)], check=True)
-        return str(venv_py)
-    except Exception as e:
-        print(f"[!] Virtual environment initialization note: {e}")
-        return sys.executable
+        candidates = [
+            BASE_DIR / ".venv" / "bin" / "python3",
+            BASE_DIR / "venv" / "bin" / "python3",
+        ]
+    for candidate in candidates:
+        if candidate.exists() and is_valid_executable(candidate):
+            return str(candidate)
+    return sys.executable
 
 def main():
     print("=" * 70)
     print(" OIL INDIA LIMITED — AI/NLP SIF PRECURSOR DETECTION SYSTEM")
     print(" Problem Statement ID: 26165 | HSE Decision Support Platform")
     print("=" * 70)
-
-    # Free port 8000 if occupied
-    free_port(8000)
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     os.environ["PYTHONPATH"] = str(BACKEND_DIR)

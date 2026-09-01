@@ -539,6 +539,20 @@
             <option value="NOT_REQUIRED">Standard High Confidence</option>
           </select>
 
+          <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 shadow-sm">
+            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Show</span>
+            <select id="reports-page-size" onchange="changeReportsPageSize(this.value)" class="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer">
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="500">500</option>
+              <option value="1000">1000</option>
+              <option value="10000">All</option>
+            </select>
+            <span class="text-[11px] font-medium text-slate-400">rows</span>
+          </div>
+
           <a href="/api/reports/export/csv" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center space-x-1.5 shadow-sm">
             <i data-lucide="download" class="w-3.5 h-3.5"></i>
             <span>Export CSV</span>
@@ -573,8 +587,22 @@
         </div>
 
         <!-- Pagination Footer -->
-        <div class="bg-slate-50 px-4 py-3 border-t border-slate-200 flex items-center justify-between">
-          <span class="text-xs font-medium text-slate-600" id="reports-pagination-info">Showing 0 to 0 of 0 observations</span>
+        <div class="bg-slate-50 px-4 py-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center space-x-3">
+            <span class="text-xs font-medium text-slate-600" id="reports-pagination-info">Showing 0 to 0 of 0 observations</span>
+            <div class="flex items-center space-x-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs shadow-xs">
+              <span class="text-[11px] font-bold text-slate-500">Per page:</span>
+              <select id="reports-page-size-footer" onchange="changeReportsPageSize(this.value)" class="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+                <option value="10000">All</option>
+              </select>
+            </div>
+          </div>
           <div class="flex items-center space-x-2" id="reports-pagination-buttons">
             <!-- Dynamically populated -->
           </div>

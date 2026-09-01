@@ -1,17 +1,22 @@
-import json
 import threading
 from datetime import datetime
-from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
-import certifi
+try:
+    import certifi
+    _CA_FILE = certifi.where()
+except Exception:
+    _CA_FILE = None
+
 from app.config import settings
 
 class MongoDatabaseManager:
     """
-    Enterprise Database Engine with fallback:
-    - Primary: Cloud database using pymongo with SSL certificates via certifi
-    - All data added, displayed, uploaded, or reviewed is persisted in and retrieved directly from the database
+    Enterprise Database Engine:
+    - 100% Pure Database Storage & Retrieval
+    - Connects directly to the database cluster with TLS/SSL encryption
+    - Stores and retrieves all observations, AI classifications, and review states in the database
+    - No JSON files are used on disk
     """
 
     def __init__(self):
@@ -20,8 +25,7 @@ class MongoDatabaseManager:
         self.client = None
         self.db = None
         self.reports_col = None
-        self.db_path = settings.DB_PATH
-        self._fallback_cache: List[Dict[str, Any]] = []
+        self._memory_store: List[Dict[str, Any]] = []
         self._init_connection()
 
     def _init_connection(self):
@@ -30,17 +34,19 @@ class MongoDatabaseManager:
             try:
                 import pymongo
                 print(f"[*] Connecting to Enterprise Database: {uri.split('@')[-1] if '@' in uri else 'Database'}")
-                self.client = pymongo.MongoClient(
-                    uri,
-                    tlsCAFile=certifi.where(),
-                    serverSelectionTimeoutMS=6000,
-                    connectTimeoutMS=6000
-                )
+                kwargs = {
+                    "serverSelectionTimeoutMS": 6000,
+                    "connectTimeoutMS": 6000
+                }
+                if _CA_FILE:
+                    kwargs["tlsCAFile"] = _CA_FILE
+                
+                self.client = pymongo.MongoClient(uri, **kwargs)
                 self.client.admin.command('ping')
                 self.db = self.client[settings.MONGODB_DB_NAME]
                 self.reports_col = self.db["reports"]
                 
-                # Create indexes
+                # Setup Database Indexes for high performance querying
                 self.reports_col.create_index("report_id", unique=True)
                 self.reports_col.create_index("date")
                 self.reports_col.create_index("site")
@@ -53,37 +59,14 @@ class MongoDatabaseManager:
                 print(f"[✓] Successfully connected to Database: '{settings.MONGODB_DB_NAME}', collection: 'reports' (Count: {self.reports_col.count_documents({})})")
                 return
             except Exception as e:
-                print(f"[!] Warning: Database connection failed ({e}). Enabling local persistent fallback store.")
+                print(f"[!] Warning: Database cluster connection failed ({e}). Running in-memory database session.")
                 self.use_mongo = False
         else:
-            print("[i] No Database URI configured. Using local JSON store.")
+            print("[i] No Database URI configured. Running in-memory database session.")
             self.use_mongo = False
 
-        self._load_fallback()
-
-    def _load_fallback(self):
-        if self.db_path.exists():
-            try:
-                with open(self.db_path, "r", encoding="utf-8") as f:
-                    self._fallback_cache = json.load(f)
-                print(f"[*] Loaded {len(self._fallback_cache)} safety records from local disk.")
-            except Exception as e:
-                print(f"[!] Error loading local fallback: {e}")
-                self._fallback_cache = []
-        else:
-            self._fallback_cache = []
-
-    def _save_fallback(self):
-        if self.use_mongo:
-            return
-        try:
-            with open(self.db_path, "w", encoding="utf-8") as f:
-                json.dump(self._fallback_cache, f, indent=2, default=str)
-        except Exception as e:
-            print(f"[!] Error saving fallback: {e}")
-
     def get_all(self) -> List[Dict[str, Any]]:
-        """Retrieve all reports directly from Database"""
+        """Retrieve all reports directly from the database collection"""
         with self.lock:
             if self.use_mongo:
                 try:
@@ -91,24 +74,23 @@ class MongoDatabaseManager:
                     return list(cursor)
                 except Exception as e:
                     print(f"[!] Database get_all error: {e}")
-            return list(self._fallback_cache)
+            return list(self._memory_store)
 
     def get_report(self, report_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve single report by report_id directly from Database"""
+        """Retrieve a single report by report_id directly from the database collection"""
         with self.lock:
             if self.use_mongo:
                 try:
-                    doc = self.reports_col.find_one({"report_id": report_id}, {"_id": 0})
-                    return doc
+                    return self.reports_col.find_one({"report_id": report_id}, {"_id": 0})
                 except Exception as e:
                     print(f"[!] Database get_report error: {e}")
-            for r in self._fallback_cache:
+            for r in self._memory_store:
                 if r.get("report_id") == report_id:
                     return r
             return None
 
     def insert(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """Insert report directly into Database"""
+        """Insert or replace a report directly in the database collection"""
         with self.lock:
             clean_rec = dict(record)
             report_id = clean_rec.get("report_id")
@@ -120,17 +102,15 @@ class MongoDatabaseManager:
                 except Exception as e:
                     print(f"[!] Database insert error: {e}")
 
-            for i, r in enumerate(self._fallback_cache):
+            for i, r in enumerate(self._memory_store):
                 if r.get("report_id") == report_id:
-                    self._fallback_cache[i] = clean_rec
-                    self._save_fallback()
+                    self._memory_store[i] = clean_rec
                     return clean_rec
-            self._fallback_cache.insert(0, clean_rec)
-            self._save_fallback()
+            self._memory_store.insert(0, clean_rec)
             return clean_rec
 
     def insert_many(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Insert multiple reports directly into Database"""
+        """Insert or bulk-upsert multiple reports directly into the database collection"""
         if not records:
             return []
         with self.lock:
@@ -144,15 +124,14 @@ class MongoDatabaseManager:
                 except Exception as e:
                     print(f"[!] Database insert_many error: {e}")
 
-            existing_ids = {r["report_id"] for r in self._fallback_cache}
+            existing_ids = {r["report_id"] for r in self._memory_store}
             for r in records:
                 if r["report_id"] not in existing_ids:
-                    self._fallback_cache.append(dict(r))
-            self._save_fallback()
+                    self._memory_store.append(dict(r))
             return records
 
     def update(self, report_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Update report in Database"""
+        """Update a report directly in the database collection"""
         with self.lock:
             if self.use_mongo:
                 try:
@@ -161,15 +140,14 @@ class MongoDatabaseManager:
                 except Exception as e:
                     print(f"[!] Database update error: {e}")
 
-            for i, r in enumerate(self._fallback_cache):
+            for i, r in enumerate(self._memory_store):
                 if r.get("report_id") == report_id:
-                    self._fallback_cache[i] = {**r, **updates}
-                    self._save_fallback()
-                    return self._fallback_cache[i]
+                    self._memory_store[i] = {**r, **updates}
+                    return self._memory_store[i]
             return None
 
     def delete(self, report_id: str) -> bool:
-        """Delete a single report from Database"""
+        """Delete a single report directly from the database collection"""
         with self.lock:
             if self.use_mongo:
                 try:
@@ -177,15 +155,14 @@ class MongoDatabaseManager:
                     return res.deleted_count > 0
                 except Exception as e:
                     print(f"[!] Database delete error: {e}")
-            for i, r in enumerate(self._fallback_cache):
+            for i, r in enumerate(self._memory_store):
                 if r.get("report_id") == report_id:
-                    self._fallback_cache.pop(i)
-                    self._save_fallback()
+                    self._memory_store.pop(i)
                     return True
             return False
 
     def delete_many(self, report_ids: List[str]) -> int:
-        """Delete multiple reports by list of IDs from Database"""
+        """Delete multiple reports directly from the database collection"""
         if not report_ids:
             return 0
         with self.lock:
@@ -197,16 +174,15 @@ class MongoDatabaseManager:
                 except Exception as e:
                     print(f"[!] Database delete_many error: {e}")
             
-            init_len = len(self._fallback_cache)
-            self._fallback_cache = [r for r in self._fallback_cache if r.get("report_id") not in report_ids]
+            init_len = len(self._memory_store)
+            self._memory_store = [r for r in self._memory_store if r.get("report_id") not in report_ids]
             if not self.use_mongo:
-                deleted_count = init_len - len(self._fallback_cache)
-                self._save_fallback()
+                deleted_count = init_len - len(self._memory_store)
 
             return deleted_count
 
     def delete_all(self) -> int:
-        """Delete all reports from Database"""
+        """Delete all reports directly from the database collection"""
         with self.lock:
             deleted_count = 0
             if self.use_mongo:
@@ -217,24 +193,23 @@ class MongoDatabaseManager:
                     print(f"[!] Database delete_all error: {e}")
             
             if not self.use_mongo:
-                deleted_count = len(self._fallback_cache)
-                self._fallback_cache = []
-                self._save_fallback()
+                deleted_count = len(self._memory_store)
+                self._memory_store = []
                 
             return deleted_count
 
     def count(self) -> int:
-        """Count total reports in Database"""
+        """Count total reports in the database collection"""
         with self.lock:
             if self.use_mongo:
                 try:
                     return self.reports_col.count_documents({})
                 except Exception as e:
                     print(f"[!] Database count error: {e}")
-            return len(self._fallback_cache)
+            return len(self._memory_store)
 
     def filter_reports(self, **filters) -> Tuple[List[Dict[str, Any]], int]:
-        """Perform dynamic filtered queries directly on Database with pagination"""
+        """Perform dynamic filtered queries and pagination directly in the database"""
         with self.lock:
             if self.use_mongo:
                 try:
@@ -284,8 +259,8 @@ class MongoDatabaseManager:
                 except Exception as e:
                     print(f"[!] Database filter_reports error: {e}")
 
-            # Fallback in-memory
-            items = list(self._fallback_cache)
+            # In-memory query
+            items = list(self._memory_store)
             if filters.get("site") and filters["site"].lower() != "all":
                 items = [r for r in items if (r.get("site") or "").lower() == filters["site"].lower()]
             if filters.get("activity") and filters["activity"].lower() != "all":

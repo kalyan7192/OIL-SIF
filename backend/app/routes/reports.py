@@ -34,7 +34,7 @@ def get_reports(
     review_status: Optional[str] = Query(None, description="Filter by review status"),
     search: Optional[str] = Query(None, description="Search query across text and fields"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=200),
+    page_size: int = Query(20, ge=1, le=10000),
     sort_by: str = Query("date", description="Field to sort by: date, confidence, site"),
     sort_desc: bool = Query(True)
 ):

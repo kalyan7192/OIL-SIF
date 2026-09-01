@@ -1,106 +1,131 @@
-import json
-import re
-from pathlib import Path
 from typing import List, Tuple
-from app.config import settings
 
 class RuleClassifier:
     """
     IOGP Life-Saving Rules Classifier
-    Maps safety observations to appropriate Life-Saving Rules
+    Maps safety observations directly to appropriate Life-Saving Rules
     """
     
     def __init__(self):
-        self.rules = self._load_rules()
+        self.rules = self._get_default_rules()
     
-    def _load_rules(self) -> List[dict]:
-        """Load rules from taxonomy file or use defaults"""
-        if settings.RULES_TAXONOMY_PATH.exists():
-            try:
-                with open(settings.RULES_TAXONOMY_PATH, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    return data.get("rules", [])
-            except Exception as e:
-                print(f"[!] Warning: Could not read taxonomy JSON: {e}")
-        
-        # Default fallback rules
+    def _get_default_rules(self) -> List[dict]:
+        """Complete 10-rule IOGP safety taxonomy definition"""
         return [
             {
                 "id": "ENERGY_ISOLATION",
                 "name": "Energy Isolation",
                 "short_name": "LOTO",
                 "color": "#ef4444",
-                "keywords": ["lockout", "tagout", "loto", "isolation", "energized", "breaker", "switchgear", "zero energy", "electrical", "electrician", "live electrical", "switch off", "power switch", "415v", "11kv", "depressuriz", "drain valve", "bleed", "bleeding off", "trapped pressure", "unbolting"]
+                "keywords": [
+                    "lockout", "tagout", "loto", "isolation", "energized", "breaker",
+                    "switchgear", "zero energy", "electrical", "electrician", "live electrical",
+                    "switch off", "power switch", "415v", "11kv", "depressuriz", "drain valve",
+                    "bleed", "bleeding off", "trapped pressure", "unbolting", "de-energiz"
+                ]
             },
             {
                 "id": "CONFINED_SPACE",
                 "name": "Confined Space",
                 "short_name": "Confined Space",
                 "color": "#f97316",
-                "keywords": ["confined", "manhole", "vessel", "tank", "pit", "entry", "atmospheric", "tank cleaning", "oxygen", "standby watchman", "inside tank"]
+                "keywords": [
+                    "confined", "manhole", "vessel", "tank", "pit", "entry", "atmospheric",
+                    "tank cleaning", "oxygen", "standby watchman", "inside tank", "toxic atmosphere"
+                ]
             },
             {
                 "id": "WORKING_AT_HEIGHT",
                 "name": "Working at Height",
                 "short_name": "Work at Height",
                 "color": "#f59e0b",
-                "keywords": ["height", "scaffold", "scaffolding", "harness", "fall", "lanyard", "elevation", "lifeline", "guardrail", "toe-board", "derrickman", "derrick", "pipe-racking"]
+                "keywords": [
+                    "height", "scaffold", "scaffolding", "harness", "fall", "lanyard",
+                    "elevation", "lifeline", "guardrail", "toe-board", "derrickman",
+                    "derrick", "pipe-racking", "25 meters", "unhooked"
+                ]
             },
             {
                 "id": "HOT_WORK",
                 "name": "Hot Work",
                 "short_name": "Hot Work",
                 "color": "#dc2626",
-                "keywords": ["hot work", "welding", "welder", "grinding", "torch", "cutting torch", "flame", "spark", "fire", "fire watch", "fire extinguisher", "open flame"]
+                "keywords": [
+                    "hot work", "welding", "welder", "grinding", "torch", "cutting torch",
+                    "flame", "spark", "fire", "fire watch", "fire extinguisher", "open flame"
+                ]
             },
             {
                 "id": "SAFE_MECHANICAL_LIFTING",
                 "name": "Safe Mechanical Lifting",
                 "short_name": "Mechanical Lifting",
                 "color": "#3b82f6",
-                "keywords": ["crane", "lifting", "rigging", "sling", "hoist", "suspended", "shackle", "lifting belt", "underneath the load", "suspended weight"]
+                "keywords": [
+                    "crane", "lifting", "rigging", "sling", "hoist", "suspended",
+                    "shackle", "lifting belt", "underneath the load", "suspended weight", "broken fibers"
+                ]
             },
             {
                 "id": "DRIVING_SAFETY",
                 "name": "Driving & Transportation",
                 "short_name": "Driving Safety",
                 "color": "#4f46e5",
-                "keywords": ["driving", "driver", "vehicle", "speeding", "seatbelt", "tanker", "truck", "bowser", "ivms", "muddy road"]
+                "keywords": [
+                    "driving", "driver", "vehicle", "speeding", "seatbelt", "tanker",
+                    "truck", "bowser", "ivms", "muddy road", "km/h"
+                ]
             },
             {
                 "id": "TOXIC_GAS_H2S",
                 "name": "Toxic Gas & H2S Exposure",
                 "short_name": "Toxic Gas / H2S",
                 "color": "#8b5cf6",
-                "keywords": ["h2s", "toxic", "gas leak", "detector", "scba", "sour gas", "gas well", "breathing apparatus"]
+                "keywords": [
+                    "h2s", "toxic", "gas leak", "detector", "scba", "sour gas",
+                    "gas well", "breathing apparatus", "hydrogen sulfide"
+                ]
             },
             {
                 "id": "LINE_OF_FIRE",
                 "name": "Line of Fire & Dropped Objects",
                 "short_name": "Line of Fire",
                 "color": "#eab308",
-                "keywords": ["line of fire", "dropped", "drop", "tong", "wrench", "pinch", "crush", "moving", "suspended load", "falling object"]
+                "keywords": [
+                    "line of fire", "dropped", "drop", "tong", "wrench", "pinch",
+                    "crush", "moving", "suspended load", "falling object", "casing tong"
+                ]
             },
             {
                 "id": "PRESSURE_HAZARDS",
                 "name": "Pressure Hazards & Piping",
                 "short_name": "Pressure Hazards",
                 "color": "#06b6d4",
-                "keywords": ["pressure", "psi", "hydrotest", "whipcheck", "whip-check", "hose", "piping", "flange", "high-pressure"]
+                "keywords": [
+                    "pressure", "psi", "hydrotest", "whipcheck", "whip-check", "hose",
+                    "piping", "flange", "high-pressure", "pressure line"
+                ]
             },
             {
                 "id": "SYSTEM_BYPASS",
                 "name": "Bypassing Safety Controls",
                 "short_name": "System Bypass",
                 "color": "#9333ea",
-                "keywords": ["bypass", "bypassing", "override", "interlock", "esdv", "silenced", "moc", "safety shut-off", "shut-off valve", "tied a wire", "disabling"]
+                "keywords": [
+                    "bypass", "bypassing", "override", "interlock", "esdv", "silenced",
+                    "moc", "safety shut-off", "shut-off valve", "tied a wire", "disabling"
+                ]
             },
             {
                 "id": "GENERAL_UA_UC",
                 "name": "General UA/UC & Housekeeping",
                 "short_name": "General UA/UC",
                 "color": "#10b981",
-                "keywords": ["housekeeping", "ppe", "gloves", "safety glasses", "safety spectacles", "walkway", "routine", "cleanliness", "spilled", "soap", "water bottles", "paper", "trash", "lighting", "light bulb", "dust covers", "eye wash", "sign board", "paint"]
+                "keywords": [
+                    "housekeeping", "ppe", "gloves", "safety glasses", "safety spectacles",
+                    "walkway", "routine", "cleanliness", "spilled", "soap", "water bottles",
+                    "paper", "trash", "lighting", "light bulb", "dust covers", "eye wash",
+                    "sign board", "paint", "slippery floor", "hallway"
+                ]
             }
         ]
     
