@@ -1,10 +1,22 @@
 // Safety Reports Table & Management (Instant Deletion Update & UI Sync)
 
 let currentReportsPage = 1;
-let reportsPageSize = 12;
+let reportsPageSize = 20;
 let searchTimeout = null;
 let selectedUploadFile = null;
 let selectedReportIds = new Set();
+
+function changeReportsPageSize(newSize) {
+  reportsPageSize = parseInt(newSize, 10) || 20;
+  
+  const selectTop = document.getElementById('reports-page-size');
+  if (selectTop) selectTop.value = newSize;
+  const selectFooter = document.getElementById('reports-page-size-footer');
+  if (selectFooter) selectFooter.value = newSize;
+  
+  loadReportsTable(1);
+}
+window.changeReportsPageSize = changeReportsPageSize;
 
 function debounceReportsSearch() {
   clearTimeout(searchTimeout);
@@ -20,6 +32,11 @@ async function loadReportsTable(page = 1) {
   const ruleVal = document.getElementById('reports-filter-rule')?.value || 'all';
   const siteVal = document.getElementById('reports-filter-site')?.value || 'all';
   const reviewVal = document.getElementById('reports-filter-review')?.value || 'all';
+  
+  const topSizeEl = document.getElementById('reports-page-size');
+  if (topSizeEl && topSizeEl.value) {
+    reportsPageSize = parseInt(topSizeEl.value, 10) || reportsPageSize;
+  }
 
   let url = `${API_BASE}/reports?page=${page}&page_size=${reportsPageSize}`;
   if (search) url += `&search=${encodeURIComponent(search)}`;
