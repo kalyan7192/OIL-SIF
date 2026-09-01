@@ -1,4 +1,5 @@
 import os
+import sys
 import csv
 from pathlib import Path
 from datetime import datetime, timezone
@@ -7,6 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+
+# Ensure backend directory is in sys.path
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+if str(_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_DIR))
 
 from app.routes import analysis_router, dashboard_router, reports_router, reviews_router
 from app.database import db

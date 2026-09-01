@@ -1,9 +1,10 @@
 // Core Application Engine & Universal Event Bus
 
 const getApiBaseUrl = () => {
-  if (window.location.port === '8000') return '/api';
-  const host = window.location.hostname || 'localhost';
-  return `http://${host}:8000/api`;
+  if (window.location.port && window.location.port !== '8000' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return `http://${window.location.hostname}:8000/api`;
+  }
+  return '/api';
 };
 const API_BASE = getApiBaseUrl();
 

@@ -1,0 +1,23 @@
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache & Bytecode
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation files & presentations
+Documentation Files/
+*.docx
+*.pptx
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
