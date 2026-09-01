@@ -1,0 +1,80 @@
+/* Modern Light Theme Styles for OIL SIF-AI Dashboard */
+
+/* Clean Light Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Tab button states */
+.tab-btn {
+  color: #64748b;
+}
+.tab-btn:hover {
+  color: #0f172a;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+.tab-btn.active {
+  color: #ffffff;
+  background-color: #f97316; /* Safety Orange */
+  box-shadow: 0 4px 12px 0 rgba(249, 115, 22, 0.25);
+}
+
+/* Stat card hover animation */
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+}
+
+/* Clean High-Contrast Badges */
+.badge-sif-yes {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+.badge-sif-no {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+.badge-uncertain {
+  background-color: #faf5ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
+/* Evidence chips */
+.evidence-chip {
+  background-color: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 8px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-content.block {
+  animation: fadeIn 0.2s ease-out forwards;
+}
